@@ -5,20 +5,25 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 import os
+import json
 
-# ── Инициализация Firebase ──────────────────────────────────────────────────
-KEY_PATH = os.getenv("FIREBASE_KEY", "serviceAccountKey.json")
-
+#Инициализация Firebase
 if not firebase_admin._apps:
-    if not os.path.exists(KEY_PATH):
-        st.error("Ошибка: файл serviceAccountKey.json не найден рядом с app.py.")
+    # Способ 1: Streamlit Cloud — ключ хранится в Secrets
+    if "firebase" in st.secrets:
+        cred = credentials.Certificate(dict(st.secrets["firebase"]))
+        firebase_admin.initialize_app(cred)
+    # Способ 2: локальный запуск — ключ лежит рядом с app.py
+    elif os.path.exists("serviceAccountKey.json"):
+        cred = credentials.Certificate("serviceAccountKey.json")
+        firebase_admin.initialize_app(cred)
+    else:
+        st.error("Ошибка: ключ Firebase не найден. Добавьте serviceAccountKey.json или настройте Secrets.")
         st.stop()
-    cred = credentials.Certificate(KEY_PATH)
-    firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
-# ── Настройки страницы ──────────────────────────────────────────────────────
+# Настройки страницы
 st.set_page_config(page_title="Питание и успеваемость", page_icon="🥗", layout="centered")
 
 st.title("🥗 Питание и успеваемость студентов")
@@ -28,7 +33,7 @@ st.markdown(
 )
 st.divider()
 
-# ── Форма опроса ────────────────────────────────────────────────────────────
+# Форма опроса
 with st.form("survey_form"):
     st.subheader("Раздел 1 — Общая информация")
 
@@ -99,7 +104,7 @@ with st.form("survey_form"):
     st.markdown("")
     submitted = st.form_submit_button("📨 Отправить ответ", use_container_width=True)
 
-# ── Сохранение в Firebase ───────────────────────────────────────────────────
+# Сохранение в Firebase
 if submitted:
     if not drinks and not fastfood_reason:
         st.warning("Пожалуйста, выберите хотя бы один вариант в вопросах с множественным выбором.")
@@ -128,7 +133,7 @@ if submitted:
         except Exception as e:
             st.error(f"Ошибка при сохранении: {e}")
 
-# ── Аналитика ───────────────────────────────────────────────────────────────
+#Аналитика
 st.divider()
 if st.checkbox("📊 Показать аналитику (для преподавателя)"):
     docs = db.collection("nutrition_survey").stream()
